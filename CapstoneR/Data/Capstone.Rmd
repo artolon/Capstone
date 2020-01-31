@@ -1,0 +1,121 @@
+---
+title: "Mental Health Among Incarcerated Women"
+author: "Abbie Tolon"
+date: "January 29, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+###Set-up
+First, I installed all of the necessary packages and loaded them to my library. Next, we set the working directory, where the original SAS files of the raw data were stored. The raw SAS files were then converted to Excel documents and saved to the working directory. Within the Excel document, unnecessary variables were removed, and only those who identified as "female" were kept. This left 30 variables of interest for analysis and a total of 1993 observations. Finally, the Excel documents were uploaded in R to prepare for further cleaning and analysis. 
+
+```{r, echo=FALSE, results='hide'}
+# installing/loading the latest installr package:
+#install.packages("installr"); library(installr) # install+load installr
+
+#updateR() # updating R.
+
+#ONLY ONLY ONLY for first loading of a package, you must install
+
+#load packages
+library(tidyverse) # for ggplot2,tibble,tidyr,readr,purrr,dplyr,stringr,forcats
+library(haven) # for reading Stata files
+library(labelled) # for working with variable labels
+library(magrittr) # for extra %$% pipe operator
+library(readxl) # for reading the excel file
+library(writexl) # for saving something as an Excel file
+library(sas7bdat) # for opening a SAS file
+library(dplyr) # gives rename function
+
+##Set Working Directory --------------------------------------------------------------------------------
+#setwd("C:/Users/artol/Documents/Fl19/CapstoneR/Data")
+
+##Name loaded file as "jail"
+#Jail1 <- read_sas("test1.sas7bdat")
+#Jail2 <- read_sas("test2.sas7bdat")
+
+##Inspect the data
+#view(Jail1)
+#view(Jail2)
+
+##save the r-file as an Excel file, so that we can manipulate data in spreadsheet form
+#write_xlsx(x = Jail1, path = "jail1.xlsx", col_names = TRUE)
+#write_xlsx(x = Jail2, path = "jail2.xlsx", col_names = TRUE)
+
+#Retrieve Data from Github -----------------------------------------------------------------------------
+jail <-read.csv("https://raw.githubusercontent.com/artolon/Capstone/master/CapstoneR/Data/jail1keydata.csv?token=AOF354NV2SKFHAYG4PXUKEC6GORC4")
+
+#View quick scan of the data
+summary(jail)
+```
+### Data Cleaning
+First, the dichotomous dependent variable was created (mental_illness). This was done by aggregating every variable related to mental illness. Such variables included: Depression, bipolar, anxiety, psychotic disorder, personality disorder, PTSD, and "other." If a person marked "yes" for any of those variables, "mental_illness" was coded as 1. If all variables were marked as "no," then "mental_illness" was also marked as "no." All missing variables were coded as "99." 
+
+```{r, echo=FALSE, results='hide'}
+#DATA CLEANING ------------------------------------------------------------------------------------
+
+#***Dependent Variable***
+#First, create a dichotomous variable called "mental_illness"; create this by aggregating
+#all the mental health variables. If ANY=1, the variable is marked 1. Otherwise, it is 0. If missing, 
+#the variable will = 99
+
+#Check class of variable before recoding 
+class(jail$V2022Depression) #is integer
+
+#Change class to character for every MH variable for recording (we will later change back to numeric)
+jail$V2022Depression <- as.character(jail$V2022Depression)
+jail$V2023Bipolar <- as.character(jail$V2023Bipolar)
+jail$V2026OtherAnxiety <- as.character(jail$V2026OtherAnxiety)
+jail$V2024PsychoticDisorder <- as.character(jail$V2024PsychoticDisorder)
+jail$V2027PersonalityDis <- as.character(jail$V2027PersonalityDis)
+jail$V2025PTSD <- as.character(jail$V2025PTSD)
+jail$V2028Other <- as.character(jail$V2028Other)
+
+#Check class again to make sure everything coded correctly 
+class(jail$V2022Depression) #is character
+class(jail$V2023Bipolar) #is character
+class(jail$V2026OtherAnxiety) #is character
+class(jail$V2024PsychoticDisorder) #is character
+class(jail$V2027PersonalityDis) #is character
+class(jail$V2025PTSD) #is character
+class(jail$V2028Other) #is character
+
+#Now, create a new variable called "mental_illness," where mental_illness=1 if all related variables=1, and where
+#mental_illness=0, if all related variables =2; otherwise, mental_illness=99 (missing)
+
+names(jail) #to get the variable/column names, so that I don't have to keep going back and forth
+
+#Create the new variable
+jail2 <- jail %>%
+  mutate(mental_illness=ifelse(V2022Depression == 1|V2023Bipolar==1|V2026OtherAnxiety==1|
+                                 V2024PsychoticDisorder==1|V2027PersonalityDis==1|V2025PTSD==1|
+                                 V2028Other==1, 1, ifelse(V2022Depression ==2|V2023Bipolar==2|V2026OtherAnxiety==2|
+                                                  V2024PsychoticDisorder==2|V2027PersonalityDis==2|V2025PTSD==2|
+                                                            V2028Other==2, 0, 99)))
+
+#View variable to see if coding was completed correctly 
+view(jail2$mental_illness)
+
+#create crosstabs to inspect some of the variables to ensure the coding was completed successfully
+table(jail2$mental_illness,jail2$V2022Depression)
+xtabs(~jail2$mental_illness + jail2$V2023Bipolar + jail2$V2024PsychoticDisorder)
+
+#***Effect Modifier***
+
+#We are going to recode the disability variable, so that 1=yes, 0=no, and 99=missing
+jail3 <- jail2 %>%
+  mutate(Disability=ifelse(V2054Disability==1, 1, ifelse(V2054Disability==2, 0, 99)))
+
+#Check the data to make sure it was done correctly
+table(jail3$Disability, jail3$V2054Disability)
+
+#View a quick scan of the variable, by itself
+view(jail3$Disability)
+
+#***Independent Variables***
+
+#The independent variables are as follows: 
+
+```
