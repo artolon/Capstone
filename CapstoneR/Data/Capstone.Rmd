@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 ###Set-up
-First, I installed all of the necessary packages and loaded them to my library. Next, we set the working directory, where the original SAS files of the raw data were stored. The raw SAS files were then converted to Excel documents and saved to the working directory. Within the Excel document, unnecessary variables were removed, and only those who identified as "female" were kept. This left 30 variables of interest for analysis and a total of 1993 observations. Finally, the Excel documents were uploaded in R to prepare for further cleaning and analysis. 
+First, I installed all of the necessary packages and loaded them to my library. Next, I set the working directory, where the original SAS files of the raw data were stored. The raw SAS files were then converted to Excel documents and saved to the working directory. Within the Excel document, unnecessary variables were removed, keeping only the variables of interest. Moreover, only those who identified as "female" were kept for the analysis. This left 30 variables of interest for analysis and a total of 1993 observations (originally, there were 6982 total observations and 2487 variables). Finally, the Excel documents were uploaded in R to prepare for further cleaning and analysis. 
 
 ```{r, echo=FALSE, results='hide'}
 # installing/loading the latest installr package:
@@ -53,9 +53,13 @@ summary(jail)
 ### Data Cleaning
 First, the dichotomous dependent variable was created (mental_illness). This was done by aggregating every variable related to mental illness. Such variables included: Depression, bipolar, anxiety, psychotic disorder, personality disorder, PTSD, and "other." If a person marked "yes" for any of those variables, "mental_illness" was coded as 1. If all variables were marked as "no," then "mental_illness" was also marked as "no." All missing variables were coded as "99." 
 
-```{r, echo=FALSE, results='hide'}
-#DATA CLEANING ------------------------------------------------------------------------------------
+Next, the effect modifier, "have a disability," was recoded so that 1=yes, 0=no, and 99=missing. 
 
+The following independent variables were then recoded, so that 1=yes, 0=no, and 99=missing: "parents/guardians abused alcohol/drugs," "parents/step-parents served time," "ever been shot at," "physically abused prior to current admission," and "ever been sexually assaulted/molested." These variables were selected, because they are examples of Adverse Childhood Experiences (ACEs) and past trauma. 
+
+Finally, confounders (race, education, and income) were all recoded. Race variables were recoded so that if a person identified with a particular race ("yes"), the variable would be marked as "1." Missing variables were coded to 99. The education variable was recoded into fewer categories. Specifically, "No school through 11th grade," "12th grade," "freshman through junior year of college," and "senior in college or higher." All other values were coded as "missing=99." One limitation to this variable, is that it does not report whether a person obtained a degree. Therefore, it must be interpreted as "years of education," rather than "degree obtained." Finally, the income variable was also recoded into fewer categories. This variable describes a person's monthly income in the most prior to arrest. The categories were recoded to the following: 0="No income"; 1="$1-$499"; 2="$500-$999"; 3="$1000-$1999"; 4="$2000-$4999"; 5="$5000 or more";and 99="missing."
+
+```{r, echo=FALSE, results='hide'}
 #***Dependent Variable***
 #First, create a dichotomous variable called "mental_illness"; create this by aggregating
 #all the mental health variables. If ANY=1, the variable is marked 1. Otherwise, it is 0. If missing, 
@@ -101,8 +105,19 @@ view(jail2$mental_illness)
 #create crosstabs to inspect some of the variables to ensure the coding was completed successfully
 table(jail2$mental_illness,jail2$V2022Depression)
 xtabs(~jail2$mental_illness + jail2$V2023Bipolar + jail2$V2024PsychoticDisorder)
+```
 
+```{r, echo=FALSE, results='hide'}
 #***Effect Modifier***
+
+#Check class of variable
+class(jail2$V2054Disability) #is integer
+
+#Change to character variable 
+jail2$V2054Disability <- as.character(jail2$V2054Disability)
+
+#Check class
+class(jail2$V2054Disability) #is character
 
 #We are going to recode the disability variable, so that 1=yes, 0=no, and 99=missing
 jail3 <- jail2 %>%
@@ -113,9 +128,183 @@ table(jail3$Disability, jail3$V2054Disability)
 
 #View a quick scan of the variable, by itself
 view(jail3$Disability)
+```
 
+```{r, echo=FALSE, results='hide'}
 #***Independent Variables***
 
 #The independent variables are as follows: 
+#"parents/guardians abused alcohol/drugs," "parents/step-parents served time," "ever been shot at," "physically abused prior to current admission," and "ever been sexually assaulted/molested." 
 
+#Check class of variable before recoding 
+class(jail3$V1509ParentsAbusedAlcDrug) #is integer
+
+#Change class to character for every independent variable for recording (we will later change back to numeric)
+jail3$V1509ParentsAbusedAlcDrug <- as.character(jail3$V1509ParentsAbusedAlcDrug)
+jail3$V1512ParentsServedTime <- as.character(jail3$V1512ParentsServedTime)
+jail3$V1537EverShot <- as.character(jail3$V1537EverShot)
+jail3$V1577PhysicalAbuse <- as.character(jail3$V1577PhysicalAbuse)
+jail3$V1541SexualAssault <- as.character(jail3$V1541SexualAssault)
+
+#Check class again to make sure everything coded correctly 
+class(jail3$V1509ParentsAbusedAlcDrug) #is character
+class(jail3$V1512ParentsServedTime) #is character
+class(jail3$V1537EverShot) #is character
+class(jail3$V1577PhysicalAbuse) #is character
+class(jail3$V1541SexualAssault) #is character
+
+#recode "parents/guardians abused alcohol/drugs" - V1509ParentsAbusedAlcDrug
+    #Currently, 1=yes, 2=no, 7=don't know, 8=refused, 9=blank
+jail3 <- jail3 %>%
+  mutate(ParentsAbusedAlcDrug=ifelse(V1509ParentsAbusedAlcDrug==1, 1, ifelse(V1509ParentsAbusedAlcDrug==2, 0, 99)))
+
+#recode "parents/step-parents served time" - V1512ParentsServedTime
+    #Currently, 1=yes, 2=no, 7=don't know, 8=refused, 9=blank
+jail3 <- jail3 %>%
+  mutate(ParentsServedTime=ifelse(V1512ParentsServedTime==1, 1, ifelse(V1512ParentsServedTime==2, 0, 99)))
+
+#recode "ever been shot at" - V1537EverShot
+    #Currently, 1=yes, 2=no, 7=don't know, 8=refused, 9=blank
+jail3 <- jail3 %>%
+  mutate(EverShot=ifelse(V1537EverShot==1, 1, ifelse(V1537EverShot==2, 0, 99)))
+
+#recode "physically abused prior to current admission" - V1577PhysicalAbuse
+    #Currently, 1=yes, 2=no, 7=don't know, 8=refused, 9=blank
+jail3 <- jail3 %>%
+  mutate(PhysicalAbuse=ifelse(V1577PhysicalAbuse==1, 1, ifelse(V1577PhysicalAbuse==2, 0, 99)))
+
+#recode "ever been sexually assaulted/molested" - V1541SexualAssault
+    #Currently, 1=yes, 2=no, 7=don't know, 8=refused, 9=blank
+jail3 <- jail3 %>%
+  mutate(SexualAssault=ifelse(V1541SexualAssault==1, 1, ifelse(V1541SexualAssault==2, 0, 99)))
+
+#Check to confirm variables were recoded 
+table(jail3$ParentsAbusedAlcDrug, jail3$V1509ParentsAbusedAlcDrug)
+table(jail3$ParentsServedTime, jail3$V1512ParentsServedTime)
+table(jail3$EverShot, jail3$V1537EverShot)
+table(jail3$PhysicalAbuse, jail3$V1577PhysicalAbuse)
+table(jail3$SexualAssault, jail3$V1541SexualAssault) #tables look good
+```
+```{r, echo=FALSE, results='hide'}
+#***Confounding Variables***
+names(jail3)
+
+#Change class to character for every confounding variable for recording (we will later change back to numeric)
+jail3$V28White <- as.character(jail3$V28White)
+jail3$V29Black <- as.character(jail3$V29Black)
+jail3$V30AmericanIndianAlaskaNative <- as.character(jail3$V30AmericanIndianAlaskaNative)
+jail3$V31Asian <- as.character(jail3$V31Asian)
+jail3$V32NativeHawaiinPacificIslander <- as.character(jail3$V32NativeHawaiinPacificIslander)
+jail3$V33OtherRace <- as.character(jail3$V33OtherRace)
+jail3$V34UnknownRace <- as.character(jail3$V34UnknownRace)
+jail3$V44Black <- as.character(jail3$V44Black)
+jail3$V1391Education <- as.character(jail3$V1391Education)
+jail3$V150Income <- as.character(jail3$V150Income)
+
+#Check class again to make sure everything coded correctly 
+class(jail3$V28White) #is character
+class(jail3$V29Black) #is character
+class(jail3$V30AmericanIndianAlaskaNative) #is character
+class(jail3$V31Asian) #is character
+class(jail3$V32NativeHawaiinPacificIslander) #is character
+class(jail3$V33OtherRace) #is character
+class(jail3$V34UnknownRace) #is character
+class(jail3$V44Black) #is character
+class(jail3$V1391Education) #is character
+class(jail3$V150Income) #is character
+
+#------------------------------------------------------------------------------------------------------------------
+#Recode Race variables: V28White, V29Black, V30AmericanIndianAlaskaNative, V31Asian, V32NativeHawaiinPacificIslander, V33OtherRace, V34UnknownRace, V44Black
+    #Currently...
+    #V28White (1=yes; 99=Blank)
+    #V29Black (2=yes; 99=Blank)
+    #V30AmericanIndianAlaskaNative (3=yes; 99=Blank)
+    #V31Asian (4=yes; 99=Blank)
+    #V32NativeHawaiinPacificIslander (5=yes; 99=Blank)
+    #V33OtherRace (6=yes; 99=Blank)
+    #V34UnknownRace (7=yes; 8=refused; 9=Blank)
+
+#First, recode the race variables, so that 1=yes for all of the options 
+jail3 <- jail3 %>%
+  mutate(White=ifelse(V28White==1, 1, 99))
+
+jail3 <- jail3 %>%
+  mutate(Black=ifelse(V29Black==2, 1, 99))
+
+jail3 <- jail3 %>%
+  mutate(AmericanIndianAlaskaNative=ifelse(V30AmericanIndianAlaskaNative==3, 1, 99))
+
+jail3 <- jail3 %>%
+  mutate(Asian=ifelse(V31Asian==4, 1, 99))
+
+jail3 <- jail3 %>%
+  mutate(NativeHawaiinPacificIslander=ifelse(V32NativeHawaiinPacificIslander==5, 1, 99))
+
+jail3 <- jail3 %>%
+  mutate(OtherRace=ifelse(V33OtherRace==6, 1, 99))
+
+jail3 <- jail3 %>%
+  mutate(UnknownRace=ifelse(V34UnknownRace==7, 1, 99))
+
+table(jail3$White, jail3$V28White) #1103 people
+table(jail3$Black, jail3$V29Black) #787 people
+table(jail3$AmericanIndianAlaskaNative, jail3$V30AmericanIndianAlaskaNative) #110 people
+table(jail3$Asian, jail3$V31Asian) #11 people
+table(jail3$NativeHawaiinPacificIslander, jail3$V32NativeHawaiinPacificIslander) #12 people
+table(jail3$OtherRace, jail3$V33OtherRace) #77 people
+table(jail3$UnknownRace, jail3$V34UnknownRace) #0 people
+
+#Now, recode the dichotomous variable, called V44Black
+    #V44Black (1=Black; 2=NonBlack); recode so that 1=yes and 0=no
+jail3 <- jail3 %>%
+  mutate(Black2=ifelse(V44Black==1, 1, ifelse(V44Black==2, 0, 99)))
+
+#Check variable to confrim it was recoded correctly 
+table(jail3$Black2, jail3$V44Black) #recode worked; 788 marked "yes", which is 1 off from V29Black...
+
+#-----------------------------------------------------------------------------------------------------------------
+#Recode V1391Education (00=Never attended or attended kindergarten only; 01=first; 02=second; 03=third; 04=fourth; 05=fifth; 06=sixth; 07=seventh; 08=eighth; 09=ninth; 10=tenth; 11=eleventh; 12=twelfth; 13=freshman; 14=sophomore; 15=junior; 16=senior; 17=one year graduate school; 18=two or more years of graduate school; 97=don't know; 98=refused; 99=blank)
+
+#I will recode this variables so that 00-11=1; 12=2; 13-15=3; 16-18=4 (this variable has issues because I don't know whether someone as a degree)
+jail3 <- jail3 %>%
+  mutate(Education=ifelse(V1391Education==00|V1391Education==01|V1391Education==02|V1391Education==03|V1391Education==04|V1391Education==05|V1391Education==06|V1391Education==07|V1391Education==08|V1391Education==09|V1391Education==10|V1391Education==11, 1, ifelse(V1391Education==12, 2, ifelse(V1391Education==13|V1391Education==14|V1391Education==15, 3, ifelse(V1391Education==16|V1391Education==17|V1391Education==18, 4, 99)))))
+
+#Check variable to confirm it was recoded correctly
+table(jail3$Education, jail3$V1391Education) #everything looks good!
+
+#------------------------------------------------------------------------------------------------------------------
+#Recode V1501Income (described as MONTHLY income in the month prior to arrest)
+    #currently (00=no income; 01=$1-99; 02=100-199; 03=200-299; 04=300-399; 05=400-499; 06=500-599; 07=600-799; 08=800-999; 09=1000-1199; 10=1200-1499; 11=1500-1999; 12=2000-2499; 13=2500-4999; 14=5000 or more; 97=don't know; 98=refused; 99=blank)
+
+#recoding so that 0=no income; 1=$1-499; 2=$500-999; 3=$1000-1999; 4=$2000-4999; 5=$5000+; 99=missing
+jail3 <- jail3 %>%
+  mutate(Income=ifelse(V150Income==00, 0, ifelse(V150Income==01|V150Income==02|V150Income==03|V150Income==04|V150Income==05, 1, ifelse(V150Income==06|V150Income==07|V150Income==08, 2, ifelse(V150Income==09|V150Income==10|V150Income==11, 3, ifelse(V150Income==12|V150Income==13, 4, ifelse(V150Income==14, 5, 99)))))))
+
+#Check variable to confirm it was recoded correctly 
+table(jail3$Income, jail3$V150Income) #table looks good! 
+
+#------------------------------------------------------------------------------------------------------------------
+#At the end of recoding...change ALL columns to numeric!!
+jail3$White <- as.numeric(jail3$White)
+jail3$Black <- as.numeric(jail3$Black)
+jail3$AmericanIndianAlaskaNative <- as.numeric(jail3$AmericanIndianAlaskaNative)
+jail3$Asian <- as.numeric(jail3$Asian)
+jail3$NativeHawaiinPacificIslander <- as.numeric(jail3$NativeHawaiinPacificIslander)
+jail3$OtherRace <- as.numeric(jail3$OtherRace)
+jail3$UnknownRace <- as.numeric(jail3$UnknownRace)
+jail3$Black2 <- as.numeric(jail3$Black2)
+jail3$Education <- as.numeric(jail3$Education)
+jail3$Income <- as.numeric(jail3$Income)
+
+#Check class of the variables
+class(jail3$White) #is numeric 
+class(jail3$Black) #is numeric 
+class(jail3$AmericanIndianAlaskaNative) #is numeric 
+class(jail3$Asian) #is numeric 
+class(jail3$NativeHawaiinPacificIslander) #is numeric 
+class(jail3$OtherRace) #is numeric 
+class(jail3$UnknownRace) #is numeric 
+class(jail3$Black2) #is numeric 
+class(jail3$Education) #is numeric 
+class(jail3$Income) #is numeric 
 ```
