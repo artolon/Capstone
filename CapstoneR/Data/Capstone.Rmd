@@ -9,6 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 ###Set-up
+
 First, I installed all of the necessary packages and loaded them to my library. Next, I set the working directory, where the original SAS files of the raw data were stored. The raw SAS files were then converted to Excel documents and saved to the working directory. Within the Excel document, unnecessary variables were removed, keeping only the variables of interest. Moreover, only those who identified as "female" were kept for the analysis. This left 30 variables of interest for analysis and a total of 1993 observations (originally, there were 6982 total observations and 2487 variables). Finally, the Excel documents were uploaded in R to prepare for further cleaning and analysis. 
 
 ```{r, echo=FALSE, results='hide'}
@@ -51,6 +52,7 @@ jail <-read.csv("https://raw.githubusercontent.com/artolon/Capstone/master/Capst
 summary(jail)
 ```
 ### Data Cleaning
+
 First, the dichotomous dependent variable was created (mental_illness). This was done by aggregating every variable related to mental illness. Such variables included: Depression, bipolar, anxiety, psychotic disorder, personality disorder, PTSD, and "other." If a person marked "yes" for any of those variables, "mental_illness" was coded as 1. If all variables were marked as "no," then "mental_illness" was also marked as "no." All missing variables were coded as "99." 
 
 Next, the effect modifier, "have a disability," was recoded so that 1=yes, 0=no, and 99=missing. 
@@ -308,3 +310,96 @@ class(jail3$Black2) #is numeric
 class(jail3$Education) #is numeric 
 class(jail3$Income) #is numeric 
 ```
+###Explore Variables
+
+Now that all applicable variables have been recoded, we are going to explore and summarize the data. First, we will analyze demographic variables, such as age, race, education, and income. 
+
+```{r, echo=FALSE, results='hide'}
+names(jail3)
+#Age variable (V13Age)--------------------------------------------------------------------------------------------
+
+#check class of variable
+class(jail3$V13Age) #is integer
+
+#change to numeric 
+jail3$V13Age <- as.numeric(jail3$V13Age)
+
+#Examine the quantiles 
+quantile(jail3$V13Age, na.rm = TRUE) #median age = 33; range of 14 to 72
+
+#Find avaerage age 
+mean(jail3$V13Age, na.rm = TRUE) #average age = 33.21
+
+#count missing variables 
+sum(is.na(jail3$V13Age)) #only one value is missing 
+
+#create a new variables that recodes age into a categorical variable 
+jail3 <- jail3 %>%
+  mutate(AgeCat=ifelse(V13Age<=17, 1, ifelse(V13Age>17 & V13Age<=34, 2, ifelse(
+    V13Age>34 & V13Age <=50, 3, ifelse(V13Age>50 & V13Age<=99, 4, 99)))))
+
+#check new variable
+table(jail3$AgeCat, jail3$V13Age) #table looks good!
+
+#Look at the breakdown for Age cat
+sum(jail3$AgeCat == 1, na.rm = TRUE) #29 people are under 18
+sum(jail3$AgeCat == 2, na.rm = TRUE) #1071 people between 18 and 34
+sum(jail3$AgeCat == 3, na.rm = TRUE) #826 people between 35 and 50
+sum(jail3$AgeCat == 4, na.rm = TRUE) #66 people are 51 and older
+
+(29/1993)*100 # 1.46% are under 18
+(1071/1993)*100 #53.74% are between 18 and 34
+(826/1993)*100 #41.45% are between 35 and 50
+(66/1993)*100 #3.31% are 51 and older 
+
+#Race variables----------------------------------------------------------------------------------------------------
+
+#Check class of the variables
+sum(jail3$White==1, na.rm = TRUE) #1103 people are White
+sum(jail3$Black==1, na.rm = TRUE) #787 people are Black
+sum(jail3$AmericanIndianAlaskaNative==1, na.rm = TRUE) #110 people are American Indian/Alaska Native
+sum(jail3$Asian==1, na.rm = TRUE) #11 people are Asian 
+sum(jail3$NativeHawaiinPacificIslander==1, na.rm = TRUE) #12 people are Native Hawaiin/Pacific Islander 
+sum(jail3$OtherRace==1, na.rm = TRUE) #77 people are an "other" race
+sum(jail3$UnknownRace==1, na.rm = TRUE) #0 people are "unknown"
+sum(jail3$Black2==1, na.rm = TRUE) #The dichotomous variable has 788 people marked as identifying as "Black"
+
+(1103/1993)*100 #55.34% identified as White
+(787/1993)*100 #39.49% identified as Black
+(110/1993)*100 #5.52% identified as American Indian/Alaska Native
+(11/1993)*100 #0.55% identified as Asian
+(12/1993)*100 #0.60% identified as Native Hawaiin/Pacific Islander
+(77/1993)*100 #3.86% identified as "other"
+(0/1993)*100 #0% of people marked "unknown" for race
+
+#Dichotmous variable for "Black" vs. "Nonblack" 
+(788/1993)*100 #39.54 identified as "Black"
+100-((788/1993)*100) #60.46 identified as "Nonblack"
+
+#Education variable------------------------------------------------------------------------------------------------
+sum(jail3$Education==1, na.rm = TRUE) #988 people completed 11th grade or lower
+sum(jail3$Education==2, na.rm = TRUE) #594 people compelted 12th grade
+sum(jail3$Education==3, na.rm = TRUE) #327 people completed their junior year of college
+sum(jail3$Education==4, na.rm = TRUE) #62 people completed their senior year of college or more
+
+(988/1993)*100 #49.57% completed 11th grade or lower
+(594/1993)*100 #29.80% people compelted 12th grade
+(327/1993)*100 #16.41% people completed their junior year of college
+(62/1993)*100 #3.11% people completed their senior year of college or more
+
+#Income variable---------------------------------------------------------------------------------------------------
+sum(jail3$Income==0, na.rm = TRUE) #127 people had no income the month prior to arrest
+sum(jail3$Income==1, na.rm = TRUE) #453 people earned $1-$499 the month prior to arrest
+sum(jail3$Income==2, na.rm = TRUE) #395 people earned $500-$999 the month prior to arrest
+sum(jail3$Income==3, na.rm = TRUE) #322 people earned $1000-$1999 the month prior to arrest
+sum(jail3$Income==4, na.rm = TRUE) #144 people earned $2000-$4999 the month prior to arrest
+sum(jail3$Income==5, na.rm = TRUE) #45 people earned $5000 or more the month prior to arrest
+
+(127/1993)*100 #6.37% people had no income the month prior to arrest
+(453/1993)*100 #22.73% people earned $1-$499 the month prior to arrest
+(395/1993)*100 #19.82% people earned $500-$999 the month prior to arrest
+(322/1993)*100 #16.16% people earned $1000-$1999 the month prior to arrest
+(144/1993)*100 #7.23% people earned $2000-$4999 the month prior to arrest
+(45/1993)*100 #2.26% people earned $5000 or more the month prior to arrest
+```
+
