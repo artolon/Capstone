@@ -312,7 +312,28 @@ class(jail3$Income) #is numeric
 ```
 ###Explore Variables
 
-Now that all applicable variables have been recoded, we are going to explore and summarize the data. First, we will analyze demographic variables, such as age, race, education, and income. 
+Now that all applicable variables have been recoded, I will explore and summarize the data. First, I will analyze demographic variables, such as age, race, education, and income. Then, I will examine the effect modifier (have disability), the independent variables, and the dependent variables. 
+
+*Age*
+The majority of respondents (54%) were between the ages of 18 and 34. Approximately 41% were between the ages of 35 and 50, about 3% were ages 51 and older, and less than 2% were under 18 years of age. The median and average age were both 33, with the youngest respondent being 14 and the oldest being 72. 
+
+*Race*
+Nearly 40% of respondents identified as being Black and about 55% identified as White. Approximately 5% of respondents said they were "American Indian/Alaska Native," and about 4% identified as "other." Less than 1% of the sample was Asian or "Native Hawaiin/Pacific Islander."
+
+*Education*
+The education variable was assessed by years completed, rather than by degree obtained. With this in mind, about half of the respondents had completed 11th grade, and about 30% completed the 12th grade. Approximately 17% of respondents completed their junior year of college, and about 3% completed their senior year of college or more. 
+
+*Income*
+Income was assessed by asking respondents the value of their monthly income, prior to the month of their jail admission. About 9% of respondents had no income the month prior to their arrest. Over a quarter of the sample (30%) earned between $1 and $499 in the month prior to admission. Over 25% earned between $500 and $999, about 22% earned between $1,000 and $1,999, about 10% earned between $2,000 and $4,999, and slightly more than 3% earned $5,000 or more in the month prior to admission. 
+
+*Disability*
+To determine this variable, interviwers asked, "Do you consider yourself to have a disability." It is important to note that the answer to this was self-reported, rather than from a medical professional. Moreover, the interviewers did not ask respondents to specify whether it was a mental or physical disability. Given this, about a quarter of the sample (22.73%) reported having a disability.
+
+*Adverse Childhood Experiences (ACEs) - Independent Variables*
+The independent variables of interest were "parents/guardians abused alcohol/drugs," "parents/step-parents served time," "ever been shot at," "physically abused prior to current admission," and "ever been sexually assaulted/molested." These variables were selected, because they are examples of ACEs and past trauma. The most common adverse experience was being "physically abused," with 44% of the sample. About 40% reported that their parents/guardians abused alcohol and/or drugs. Approximately 35% said they had been sexually abused prior to their jail admission. Nearly a quarter (23%) reported that their parents/step-parents had also served time in jail or prison. Slightly less than 20% of respondents said they had been shot at with a gun. 
+
+*Mental Health - Dependent Variable*
+Almost half of the study sample (45%) reported having a mental illness of some kind. Specifically, most respondents (35%) had depression. About 20% had bipolar, 18% had anxiety, 11% had post-traumatic stress disorder (PTSD), 9% had a personality disorder, 6% had a psychotic disorder, and about 3% listed "other" mental illness. 
 
 ```{r, echo=FALSE, results='hide'}
 names(jail3)
@@ -347,10 +368,10 @@ sum(jail3$AgeCat == 2, na.rm = TRUE) #1071 people between 18 and 34
 sum(jail3$AgeCat == 3, na.rm = TRUE) #826 people between 35 and 50
 sum(jail3$AgeCat == 4, na.rm = TRUE) #66 people are 51 and older
 
-(29/1993)*100 # 1.46% are under 18
-(1071/1993)*100 #53.74% are between 18 and 34
-(826/1993)*100 #41.45% are between 35 and 50
-(66/1993)*100 #3.31% are 51 and older 
+(29/1992)*100 # 1.46% are under 18
+(1071/1992)*100 #53.77% are between 18 and 34
+(826/1992)*100 #41.47% are between 35 and 50
+(66/1992)*100 #3.31% are 51 and older 
 
 #Race variables----------------------------------------------------------------------------------------------------
 
@@ -382,10 +403,10 @@ sum(jail3$Education==2, na.rm = TRUE) #594 people compelted 12th grade
 sum(jail3$Education==3, na.rm = TRUE) #327 people completed their junior year of college
 sum(jail3$Education==4, na.rm = TRUE) #62 people completed their senior year of college or more
 
-(988/1993)*100 #49.57% completed 11th grade or lower
-(594/1993)*100 #29.80% people compelted 12th grade
-(327/1993)*100 #16.41% people completed their junior year of college
-(62/1993)*100 #3.11% people completed their senior year of college or more
+(988/1971)*100 #50.13% completed 11th grade or lower
+(594/1971)*100 #30.14% people compelted 12th grade
+(327/1971)*100 #16.59% people completed their junior year of college
+(62/1971)*100 #3.15% people completed their senior year of college or more
 
 #Income variable---------------------------------------------------------------------------------------------------
 sum(jail3$Income==0, na.rm = TRUE) #127 people had no income the month prior to arrest
@@ -395,11 +416,53 @@ sum(jail3$Income==3, na.rm = TRUE) #322 people earned $1000-$1999 the month prio
 sum(jail3$Income==4, na.rm = TRUE) #144 people earned $2000-$4999 the month prior to arrest
 sum(jail3$Income==5, na.rm = TRUE) #45 people earned $5000 or more the month prior to arrest
 
-(127/1993)*100 #6.37% people had no income the month prior to arrest
-(453/1993)*100 #22.73% people earned $1-$499 the month prior to arrest
-(395/1993)*100 #19.82% people earned $500-$999 the month prior to arrest
-(322/1993)*100 #16.16% people earned $1000-$1999 the month prior to arrest
-(144/1993)*100 #7.23% people earned $2000-$4999 the month prior to arrest
-(45/1993)*100 #2.26% people earned $5000 or more the month prior to arrest
+(127/1486)*100 #8.55% people had no income the month prior to arrest
+(453/1486)*100 #30.48% people earned $1-$499 the month prior to arrest
+(395/1486)*100 #26.58% people earned $500-$999 the month prior to arrest
+(322/1486)*100 #21.67% people earned $1000-$1999 the month prior to arrest
+(144/1486)*100 #9.69% people earned $2000-$4999 the month prior to arrest
+(45/1486)*100 #3.03% people earned $5000 or more the month prior to arrest
+
+#Effect Mofifier -- Disability ------------------------------------------------------------------------------------
+sum(jail3$Disability==1, na.rm = TRUE) #453 people report having a disability 
+(453/1993)*100 #22.73% of people report having a disability 
+
+#Independent Variables---------------------------------------------------------------------------------------------
+sum(jail3$ParentsAbusedAlcDrug==1, na.rm = TRUE) #791 people reported that their parents abused alcohol or drugs
+sum(jail3$ParentsServedTime==1, na.rm = TRUE) #466 people reported that their parents served time in jail or prison
+sum(jail3$EverShot==1, na.rm = TRUE) #395 people report having been shot at with a gun
+sum(jail3$PhysicalAbuse==1, na.rm = TRUE) #876 people reported being physically abused prior to their admission
+sum(jail3$SexualAssault==1, na.rm = TRUE) #699 people reported being sexually abused prior to their admission
+
+(791/1993)*100 #39.68% people reported that their parents abused alcohol or drugs
+(466/1993)*100 #23.38% people reported that their parents served time in jail or prison
+(395/1993)*100 #19.82% people report having been shot at with a gun
+(876/1993)*100 #43.95% people reported being physically abused prior to their admission
+(699/1993)*100 #35.07% people reported being sexually abused prior to their admission
+
+#Dependent variables-----------------------------------------------------------------------------------------------
+#Break down of mental illness type
+sum(jail3$V2022Depression==1, na.rm = TRUE) #698 people said they have depression
+sum(jail3$V2023Bipolar==1, na.rm = TRUE) #400 people said they have bipolar
+sum(jail3$V2026OtherAnxiety==1, na.rm = TRUE) #360 people said they have "other anxiety"
+sum(jail3$V2024PsychoticDisorder==1, na.rm = TRUE) #113 people said they have a psychotic disorder 
+sum(jail3$V2027PersonalityDis==1, na.rm = TRUE) #171 people said they have a personality disorder
+sum(jail3$V2025PTSD==1, na.rm = TRUE) #222 people said they have post-traumatic stress disorder (PTSD)
+sum(jail3$V2028Other==1, na.rm = TRUE) #57 people said they have an "other" mental disorder
+
+(698/1993)*100 #35.02% people said they have depression
+(400/1993)*100 #20.07% people said they have bipolar
+(360/1993)*100 #18.06% people said they have "other anxiety"
+(113/1993)*100 #5.67% people said they have a psychotic disorder
+(171/1993)*100 #8.58% people said they have a personality disorder
+(222/1993)*100 #11.14% people said they have post-traumatic stress disorder (PTSD)
+(57/1993)*100 #2.86% people said they have an "other" mental disorder
+
+#Dichotomous mental illness variable 
+sum(jail3$mental_illness==1, na.rm = TRUE) #895 people reported having a mental illness 
+(895/1993)*100 #44.91% of the sample reported having a mental illness 
 ```
 
+###Data Analysis
+
+Check the assumptions; use logistic regression model 
