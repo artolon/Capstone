@@ -53,7 +53,7 @@ summary(jail)
 ```
 ### Data Cleaning
 
-First, the dichotomous dependent variable was created (mental_illness). This was done by aggregating every variable related to mental illness. Such variables included: Depression, bipolar, anxiety, psychotic disorder, personality disorder, PTSD, and "other." If a person marked "yes" for any of those variables, "mental_illness" was coded as 1. If all variables were marked as "no," then "mental_illness" was also marked as "no." All missing variables were coded as "99." 
+First, the dichotomous dependent variable was created (mental_illness). This was done by aggregating every variable related to mental illness. Such variables included: Depression, bipolar, anxiety, psychotic disorder, personality disorder, PTSD, and "other." If a person marked "yes" for any of those variables, "mental_illness" was coded as 1. If all variables were marked as "no," then "mental_illness" was marked as "no." All missing variables were coded as "99." 
 
 Next, the effect modifier, "have a disability," was recoded so that 1=yes, 0=no, and 99=missing. 
 
@@ -88,18 +88,16 @@ class(jail$V2027PersonalityDis) #is character
 class(jail$V2025PTSD) #is character
 class(jail$V2028Other) #is character
 
-#Now, create a new variable called "mental_illness," where mental_illness=1 if all related variables=1, and where
-#mental_illness=0, if all related variables =2; otherwise, mental_illness=99 (missing)
+#Now, create a new variable called "mental_illness," where mental_illness=1 if ANY related variable=1, and where
+#mental_illness=0, if ALL related variables =2; otherwise, mental_illness=99 (missing)
 
 names(jail) #to get the variable/column names, so that I don't have to keep going back and forth
 
 #Create the new variable
 jail2 <- jail %>%
-  mutate(mental_illness=ifelse(V2022Depression == 1|V2023Bipolar==1|V2026OtherAnxiety==1|
+  mutate(mental_illness=ifelse(V2022Depression==1|V2023Bipolar==1|V2026OtherAnxiety==1|
                                  V2024PsychoticDisorder==1|V2027PersonalityDis==1|V2025PTSD==1|
-                                 V2028Other==1, 1, ifelse(V2022Depression ==2|V2023Bipolar==2|V2026OtherAnxiety==2|
-                                                  V2024PsychoticDisorder==2|V2027PersonalityDis==2|V2025PTSD==2|
-                                                            V2028Other==2, 0, 99)))
+                                 V2028Other==1, 1, ifelse(V2022Depression==2 & V2023Bipolar==2 & V2026OtherAnxiety==2 &                                V2024PsychoticDisorder==2 & V2027PersonalityDis==2 & V2025PTSD==2 & V2028Other==2,                                     0,99)))
 
 #View variable to see if coding was completed correctly 
 view(jail2$mental_illness)
@@ -461,8 +459,53 @@ sum(jail3$V2028Other==1, na.rm = TRUE) #57 people said they have an "other" ment
 #Dichotomous mental illness variable 
 sum(jail3$mental_illness==1, na.rm = TRUE) #895 people reported having a mental illness 
 (895/1993)*100 #44.91% of the sample reported having a mental illness 
+
+
 ```
 
 ###Data Analysis
 
 Check the assumptions; use logistic regression model 
+
+o	Dependent variable is dichotomous (Do you have a mental illness? yes/no)
+o	There are multiple independent variables, and they all vary  
+o	There is Independence of observations (individual survey respondents)
+o	All categories for dichotomous dependent and nominal independent variables are exhaustive and mutually exclusive.
+o	There are more than 50 cases per independent variable.
+o	There is no multicollinearity.
+o	There are no overly influential values.
+
+**Linear relationship between the continuous independent variables and the logit transformation of the DV (box tidwell)
+**Use log liklihood to see how much unexplained information there is after the model has been fitted (large values indicate a poor fit)
+    So, the further a predicted value is from the actual value, the more an observation contributes to the LL
+    If many values are far from their predictions, the LL will be large, large LL = bad model fit
+
+
+```{r}
+#Check for multicollinearity 
+
+
+#CHeck for influential values 
+
+
+#General Logistic Regression------------------------------------------------------------------------------------------------
+p <- glm(mental_illness~ParentsAbusedAlcDrug+ParentsServedTime+EverShot+PhysicalAbuse+SexualAssault,
+               data=jail3, family="binomial")
+
+summary(p) #summary of the data 
+coef(p) #To get the coefficients 
+exp(coef(p)) #for ORs only
+exp(cbind(OR = coef(p), confint(p))) #For confidence intervals 
+
+#Logistic Regression, including the confounders (Education, Income, and Race)----------------------------------------------
+j <- glm(mental_illness~ParentsAbusedAlcDrug+ParentsServedTime+EverShot+PhysicalAbuse+SexualAssault+
+           Education+Income+Black2,
+               data=jail3, family="binomial")
+summary(j)
+coef(j)
+exp(coef(j))
+exp(cbind(OR=coef(j), confint(j)))
+
+#influential observations
+
+```
