@@ -1,0 +1,15 @@
+Demographic Variables,"Dependent Variable - 
+Mental Health Prevalence","Independent Variables - 
+Trauma experienced",Effect Modifier
+Sex (all are female),Mental Illness (yes/no),parents/guardians abused alcohol/drugs (yes/no),Do you consider yourself to have a disability (yes/no)
+Age,     Depression,parents/step-parents served time (yes/no),
+Race variables:,     Bipolar,ever been shot at (yes/no),
+     White,     PsychoticDisorder,ever been sexually assaulted/molested (yes/no),
+     Black,     PTSD,physically abused prior to current admission (yes/no),
+     AmericanIndian/AlaskaNative,     Anxiety,,
+     Asian,     PersonalityDisorder,,
+     NativeHawaiin/PacificIslander,     Other ,,
+     OtherRace,,,
+     UnknownRace,,,
+Education level prior to admission,,,
+Income in month prior to admission,,,
