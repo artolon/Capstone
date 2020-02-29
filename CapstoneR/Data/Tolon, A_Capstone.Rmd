@@ -1,0 +1,698 @@
+---
+title: "Mental Health Among Incarcerated Women"
+author: "Abbie Tolon"
+date: "January 29, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+###Set-up
+
+First, I installed all of the necessary packages and loaded them to my library. Next, I set the working directory, where the original SAS files of the raw data were stored. The raw SAS files were then converted to Excel documents and saved to the working directory. Within the Excel document, unnecessary variables were removed, keeping only the variables of interest. Moreover, only those who identified as "female" were kept for the analysis. This left 30 variables of interest for analysis and a total of 1993 observations (originally, there were 6982 total observations and 2487 variables). Finally, the Excel documents were uploaded in R to prepare for further cleaning and analysis. 
+
+```{r, echo=FALSE, results='hide'}
+# installing/loading the latest installr package:
+#install.packages("installr"); library(installr) # install+load installr
+
+#updateR() # updating R.
+
+remove(list = ls())
+
+#load packages
+library(tidyverse) #for ggplot2,tibble,tidyr,readr,purrr,dplyr,stringr,forcats
+library(labelled) #for working with variable labels
+library(magrittr) #for extra %$% pipe operator
+library(readxl) #for reading the excel file
+library(writexl) #for saving something as an Excel file
+library(sas7bdat) #for opening a SAS file
+library(dplyr) #gives rename function
+library(car) #contains vif function and other tools for regression 
+library(VGAM) #For regression functions
+library(odds.n.ends) #For sensitivity, specificity, and 95% CIs
+library(lmtest) #For running lrtest
+library(ResourceSelection) #For Hosmer Lemeshow Test
+
+##Set Working Directory --------------------------------------------------------------------------------
+#setwd("C:/Users/artol/Documents/Fl19/CapstoneR/Data")
+
+##Name loaded file as "jail"
+#Jail1 <- read_sas("test1.sas7bdat")
+#Jail2 <- read_sas("test2.sas7bdat")
+
+##Inspect the data
+#view(Jail1)
+#view(Jail2)
+
+##save the r-file as an Excel file, so that we can manipulate data in spreadsheet form
+#write_xlsx(x = Jail1, path = "jail1.xlsx", col_names = TRUE)
+#write_xlsx(x = Jail2, path = "jail2.xlsx", col_names = TRUE)
+
+#Retrieve Data from Github -----------------------------------------------------------------------------
+#Link for full sample
+jail <-read.csv("https://raw.githubusercontent.com/artolon/Capstone/master/CapstoneR/Data/jail1keydata.csv?token=AOF354NV2SKFHAYG4PXUKEC6GORC4")
+
+#Link for random sample
+#jail_random <-read.csv("https://raw.githubusercontent.com/artolon/Capstone/master/CapstoneR/Data/jail1_randomsample.csv")
+
+#View quick scan of the data
+summary(jail) #1993 observations and 30 variables 
+```
+### Data Cleaning
+
+First, the dichotomous dependent variable was created (mental_illness). This was done by aggregating every variable related to mental illness. Such variables included: Depression, bipolar, anxiety, psychotic disorder, personality disorder, PTSD, and "other." If a person marked "yes" for any of those variables, "mental_illness" was coded as 1. If all variables were marked as "no," then "mental_illness" was marked as "no." All missing variables were coded as "99." 
+
+Next, the effect modifier, "have a disability," was recoded so that 1=yes, 0=no, and 99=missing. 
+
+The following independent variables were then recoded, so that 1=yes, 0=no, and 99=missing: "parents/guardians abused alcohol/drugs," "parents/step-parents served time," "ever been shot at," "physically abused prior to current admission," and "ever been sexually assaulted/molested." These variables were selected, because they are examples of Adverse Childhood Experiences (ACEs) and past trauma. 
+
+Finally, confounders (race, education, and income) were all recoded. Race variables were recoded so that if a person identified with a particular race ("yes"), the variable would be marked as "1." Missing variables were coded to 99. The education variable was recoded into fewer categories. Specifically, "No school through 11th grade," "12th grade," "freshman through junior year of college," and "senior in college or higher." All other values were coded as "missing=99." One limitation to this variable, is that it does not report whether a person obtained a degree. Therefore, it must be interpreted as "years of education," rather than "degree obtained." Finally, the income variable was also recoded into fewer categories. This variable describes a person's monthly income in the most prior to arrest. The categories were recoded to the following: 0="No income"; 1="$1-$499"; 2="$500-$999"; 3="$1000-$1999"; 4="$2000-$4999"; 5="$5000 or more";and 99="missing."
+
+*Dependent Variable*
+```{r, echo=FALSE, results='hide'}
+#***Dependent Variable***
+#First, create a dichotomous variable called "mental_illness"; create this by aggregating all the mental health variables. If ANY=1, the variable is marked 1. Otherwise, it is 0. If missing, the variable will = NA
+
+#Check class of variable before recoding 
+class(jail$V2022Depression) #is integer
+
+#Now, create a new variable called "mental_illness," where mental_illness=1 if ANY related variable=1, and where mental_illness=0, if ALL related variables =2; otherwise, mental_illness=99 (missing)
+
+names(jail) #to get the variable/column names, so that I don't have to keep going back and forth
+
+#Create the new variable
+jail2 <- jail %>%
+  mutate(mental_illness=ifelse(V2022Depression==1|V2023Bipolar==1|V2026OtherAnxiety==1|
+                                 V2024PsychoticDisorder==1|V2027PersonalityDis==1|V2025PTSD==1|
+                                 V2028Other==1, 1, ifelse(V2022Depression==2 & V2023Bipolar==2 & V2026OtherAnxiety==2 &                                V2024PsychoticDisorder==2 & V2027PersonalityDis==2 & V2025PTSD==2 & V2028Other==2,                                     0,NA)))
+
+#View variable to see if coding was completed correctly 
+view(jail2$mental_illness) #looks good, and no missing
+class(jail2$mental_illness)
+
+#create crosstabs to inspect some of the variables to ensure the coding was completed successfully
+table(jail2$mental_illness,jail2$V2022Depression)
+xtabs(~jail2$mental_illness + jail2$V2023Bipolar + jail2$V2024PsychoticDisorder)
+
+#sum
+sum(jail2$mental_illness, na.rm = TRUE) #895 with mental illness
+```
+
+*Effect Modifier*
+```{r, echo=FALSE, results='hide'}
+#***Effect Modifier***
+
+#Check class of variable
+class(jail2$V2054Disability) #is integer
+
+#recode the disability variable, so that 1=yes, 0=no
+jail3 <- jail2 %>%
+  mutate(Disability=ifelse(V2054Disability==1, 1, ifelse(V2054Disability==2, 0, NA)))
+
+#Check the data to make sure it was done correctly
+table(jail3$Disability, jail3$V2054Disability)
+```
+*Independent Variables*
+```{r, echo=FALSE, results='hide'}
+#***Independent Variables***
+
+#The independent variables are as follows: "parents/guardians abused alcohol/drugs," "parents/step-parents served time," "ever been shot at," "physically abused prior to current admission," and "ever been sexually assaulted/molested." 
+
+#Check class of variable before recoding 
+class(jail3$V1509ParentsAbusedAlcDrug) #is integer
+
+#recode "parents/guardians abused alcohol/drugs" - V1509ParentsAbusedAlcDrug
+    #Currently, 1=yes, 2=no, 7=don't know, 8=refused, 9=blank
+jail3 <- jail3 %>%
+  mutate(ParentsAbusedAlcDrug=ifelse(V1509ParentsAbusedAlcDrug==1, 1, ifelse(V1509ParentsAbusedAlcDrug==2, 0, NA)))
+
+#recode "parents/step-parents served time" - V1512ParentsServedTime
+    #Currently, 1=yes, 2=no, 7=don't know, 8=refused, 9=blank
+jail3 <- jail3 %>%
+  mutate(ParentsServedTime=ifelse(V1512ParentsServedTime==1, 1, ifelse(V1512ParentsServedTime==2, 0, NA)))
+
+#recode "ever been shot at" - V1537EverShot
+    #Currently, 1=yes, 2=no, 7=don't know, 8=refused, 9=blank
+jail3 <- jail3 %>%
+  mutate(EverShot=ifelse(V1537EverShot==1, 1, ifelse(V1537EverShot==2, 0, NA)))
+
+#recode "physically abused prior to current admission" - V1577PhysicalAbuse
+    #Currently, 1=yes, 2=no, 7=don't know, 8=refused, 9=blank
+jail3 <- jail3 %>%
+  mutate(PhysicalAbuse=ifelse(V1577PhysicalAbuse==1, 1, ifelse(V1577PhysicalAbuse==2, 0, NA)))
+
+#recode "ever been sexually assaulted/molested" - V1541SexualAssault
+    #Currently, 1=yes, 2=no, 7=don't know, 8=refused, 9=blank
+jail3 <- jail3 %>%
+  mutate(SexualAssault=ifelse(V1541SexualAssault==1, 1, ifelse(V1541SexualAssault==2, 0, NA)))
+
+#Check to confirm variables were recoded 
+table(jail3$ParentsAbusedAlcDrug, jail3$V1509ParentsAbusedAlcDrug)
+table(jail3$ParentsServedTime, jail3$V1512ParentsServedTime)
+table(jail3$EverShot, jail3$V1537EverShot)
+table(jail3$PhysicalAbuse, jail3$V1577PhysicalAbuse)
+table(jail3$SexualAssault, jail3$V1541SexualAssault) #tables look good
+```
+
+*Confounders*
+```{r, echo=FALSE, results='hide'}
+#***Confounding Variables***
+names(jail3)
+
+#------------------------------------------------------------------------------------------------------------------
+#Recode Race variables: V28White, V29Black, V30AmericanIndianAlaskaNative, V31Asian, V32NativeHawaiinPacificIslander, V33OtherRace, V34UnknownRace, V44Black
+    #Currently...
+    #V28White (1=yes; 99=Blank)
+    #V29Black (2=yes; 99=Blank)
+    #V30AmericanIndianAlaskaNative (3=yes; 99=Blank)
+    #V31Asian (4=yes; 99=Blank)
+    #V32NativeHawaiinPacificIslander (5=yes; 99=Blank)
+    #V33OtherRace (6=yes; 99=Blank)
+    #V34UnknownRace (7=yes; 8=refused; 9=Blank)
+
+#First, recode the race variables, so that 1=yes for all of the options 
+jail3 <- jail3 %>%
+  mutate(White=ifelse(V28White==1, 1, NA))
+
+jail3 <- jail3 %>%
+  mutate(Black=ifelse(V29Black==2, 1, NA))
+
+jail3 <- jail3 %>%
+  mutate(AmericanIndianAlaskaNative=ifelse(V30AmericanIndianAlaskaNative==3, 1, NA))
+
+jail3 <- jail3 %>%
+  mutate(Asian=ifelse(V31Asian==4, 1, NA))
+
+jail3 <- jail3 %>%
+  mutate(NativeHawaiinPacificIslander=ifelse(V32NativeHawaiinPacificIslander==5, 1, NA))
+
+jail3 <- jail3 %>%
+  mutate(OtherRace=ifelse(V33OtherRace==6, 1, NA))
+
+jail3 <- jail3 %>%
+  mutate(UnknownRace=ifelse(V34UnknownRace==7, 1, NA))
+
+table(jail3$White, jail3$V28White) #1103 people
+table(jail3$Black, jail3$V29Black) #787 people
+table(jail3$AmericanIndianAlaskaNative, jail3$V30AmericanIndianAlaskaNative) #110 people
+table(jail3$Asian, jail3$V31Asian) #11 people
+table(jail3$NativeHawaiinPacificIslander, jail3$V32NativeHawaiinPacificIslander) #12 people
+table(jail3$OtherRace, jail3$V33OtherRace) #77 people
+table(jail3$UnknownRace, jail3$V34UnknownRace) #0 people
+
+#Now, recode the dichotomous variable, called V44Black
+    #V44Black (1=Black; 2=NonBlack); recode so that 1=yes and 0=no
+jail3 <- jail3 %>%
+  mutate(Black2=ifelse(V44Black==1, 1, ifelse(V44Black==2, 0, NA)))
+
+#Check variable to confrim it was recoded correctly 
+table(jail3$Black2, jail3$V44Black) #recode worked; 788 marked "yes", which is 1 off from V29Black...
+#-----------------------------------------------------------------------------------------------------------------
+#Recode V1391Education (00=Never attended or attended kindergarten only; 01=first; 02=second; 03=third; 04=fourth; 05=fifth; 06=sixth; 07=seventh; 08=eighth; 09=ninth; 10=tenth; 11=eleventh; 12=twelfth; 13=freshman; 14=sophomore; 15=junior; 16=senior; 17=one year graduate school; 18=two or more years of graduate school; 97=don't know; 98=refused; 99=blank)
+
+#I will recode this variables so that 00-11=1; 12=2; 13-15=3; 16-18=4 (this variable has issues because I don't know whether someone as a degree)
+jail3 <- jail3 %>%
+  mutate(Education=ifelse(V1391Education==00|V1391Education==01|V1391Education==02|V1391Education==03|V1391Education==04|V1391Education==05|V1391Education==06|V1391Education==07|V1391Education==08|V1391Education==09|V1391Education==10|V1391Education==11, 1, ifelse(V1391Education==12, 2, ifelse(V1391Education==13|V1391Education==14|V1391Education==15, 3, ifelse(V1391Education==16|V1391Education==17|V1391Education==18, 4, NA)))))
+
+#Check variable to confirm it was recoded correctly
+table(jail3$Education, jail3$V1391Education) #everything looks good!
+#------------------------------------------------------------------------------------------------------------------
+#Recode V1501Income (described as MONTHLY income in the month prior to arrest)
+    #currently (00=no income; 01=$1-99; 02=100-199; 03=200-299; 04=300-399; 05=400-499; 06=500-599; 07=600-799; 08=800-999; 09=1000-1199; 10=1200-1499; 11=1500-1999; 12=2000-2499; 13=2500-4999; 14=5000 or more; 97=don't know; 98=refused; 99=blank)
+
+#recoding so that 0=no income; 1=$1-499; 2=$500-999; 3=$1000-1999; 4=$2000-4999; 5=$5000+; 99=missing
+jail3 <- jail3 %>%
+  mutate(Income=ifelse(V1501Income==00, 0, ifelse(V1501Income==01|V1501Income==02|V1501Income==03|V1501Income==04|V1501Income==05, 1, ifelse(V1501Income==06|V1501Income==07|V1501Income==08, 2, ifelse(V1501Income==09|V1501Income==10|V1501Income==11, 3, ifelse(V1501Income==12|V1501Income==13, 4, ifelse(V1501Income==14, 5, NA)))))))
+
+#Check variable to confirm it was recoded correctly 
+table(jail3$Income, jail3$V1501Income) #table looks good! 
+```
+###Explore Variables
+
+Now that all applicable variables have been recoded, I will explore and summarize the data. First, I will analyze demographic variables, such as age, race, education, and income. Then, I will examine the effect modifier (have disability), the independent variables, and the dependent variables. 
+
+*Age*
+The majority of respondents (54%) were between the ages of 18 and 34. Approximately 41% were between the ages of 35 and 50, about 3% were ages 51 and older, and less than 2% were under 18 years of age. The median and average age were both 33, with the youngest respondent being 14 and the oldest being 72. 
+
+*Race*
+Nearly 40% of respondents identified as being Black and about 55% identified as White. Approximately 5% of respondents said they were "American Indian/Alaska Native," and about 4% identified as "other." Less than 1% of the sample was Asian or "Native Hawaiin/Pacific Islander."
+
+*Education*
+The education variable was assessed by years completed, rather than by degree obtained. With this in mind, about half of the respondents had completed 11th grade, and about 30% completed the 12th grade. Approximately 17% of respondents completed their junior year of college, and about 3% completed their senior year of college or more. 
+
+*Income*
+Income was assessed by asking respondents the value of their monthly income, prior to the month of their jail admission. About 9% of respondents had no income the month prior to their arrest. Over a quarter of the sample (30%) earned between $1 and $499 in the month prior to admission. Over 25% earned between $500 and $999, about 22% earned between $1,000 and $1,999, about 10% earned between $2,000 and $4,999, and slightly more than 3% earned $5,000 or more in the month prior to admission. 
+
+*Disability*
+To determine this variable, interviwers asked, "Do you consider yourself to have a disability." It is important to note that the answer to this was self-reported, rather than from a medical professional. Moreover, the interviewers did not ask respondents to specify whether it was a mental or physical disability. Given this, about a quarter of the sample (22.73%) reported having a disability.
+
+*Adverse Childhood Experiences (ACEs) - Independent Variables*
+The independent variables of interest were "parents/guardians abused alcohol/drugs," "parents/step-parents served time," "ever been shot at," "physically abused prior to current admission," and "ever been sexually assaulted/molested." These variables were selected, because they are examples of ACEs and past trauma. The most common adverse experience was being "physically abused," with 44% of the sample. About 40% reported that their parents/guardians abused alcohol and/or drugs. Approximately 35% said they had been sexually abused prior to their jail admission. Nearly a quarter (23%) reported that their parents/step-parents had also served time in jail or prison. Slightly less than 20% of respondents said they had been shot at with a gun. 
+
+*Mental Health - Dependent Variable*
+Almost half of the study sample (45%) reported having a mental illness of some kind. Specifically, most respondents (35%) had depression. About 20% had bipolar, 18% had anxiety, 11% had post-traumatic stress disorder (PTSD), 9% had a personality disorder, 6% had a psychotic disorder, and about 3% listed "other" mental illness. 
+
+```{r, echo=FALSE, results='hide'}
+names(jail3)
+#Age variable (V13Age)--------------------------------------------------------------------------------------------
+
+#check class of variable
+class(jail3$V13Age) #is integer
+
+#change to numeric 
+jail3$V13Age <- as.numeric(jail3$V13Age)
+
+#Examine the quantiles 
+quantile(jail3$V13Age, na.rm = TRUE) #median age = 33; range of 14 to 72
+
+#Find avaerage age 
+mean(jail3$V13Age, na.rm = TRUE) #average age = 33.21
+
+#count missing variables 
+sum(is.na(jail3$V13Age)) #only one value is missing 
+
+#create a new variables that recodes age into a categorical variable 
+jail3 <- jail3 %>%
+  mutate(AgeCat=ifelse(V13Age<=17, 1, ifelse(V13Age>17 & V13Age<=34, 2, ifelse(
+    V13Age>34 & V13Age <=50, 3, ifelse(V13Age>50 & V13Age<=99, 4, NA)))))
+
+#check new variable
+table(jail3$AgeCat, jail3$V13Age) #table looks good!
+
+#Check class of new AgeCat variable
+class(jail3$AgeCat) #is numeric
+sum(is.na(jail3$AgeCat)) #one missing; 1992 observations
+
+#Look at the breakdown for Age cat
+sum(jail3$AgeCat == 1, na.rm = TRUE) #29 people are under 18
+sum(jail3$AgeCat == 2, na.rm = TRUE) #1071 people between 18 and 34
+sum(jail3$AgeCat == 3, na.rm = TRUE) #826 people between 35 and 50
+sum(jail3$AgeCat == 4, na.rm = TRUE) #66 people are 51 and older
+
+(29/1992)*100 # 1.46% are under 18
+(1071/1992)*100 #53.77% are between 18 and 34
+(826/1992)*100 #41.47% are between 35 and 50
+(66/1992)*100 #3.31% are 51 and older 
+
+#Race variables----------------------------------------------------------------------------------------------------
+
+#Sum race variables
+sum(jail3$White==1, na.rm = TRUE) #1103 people are White
+
+sum(jail3$Black==1, na.rm = TRUE) #787 people are Black
+
+sum(jail3$AmericanIndianAlaskaNative==1, na.rm = TRUE) #110 people are American Indian/Alaska Native
+
+sum(jail3$Asian==1, na.rm = TRUE) #11 people are Asian 
+
+sum(jail3$NativeHawaiinPacificIslander==1, na.rm = TRUE) #12 people are Native Hawaiin/Pacific Islander 
+
+sum(jail3$OtherRace==1, na.rm = TRUE) #77 people are an "other" race
+
+sum(jail3$UnknownRace==1, na.rm = TRUE) #0 people are "unknown"
+
+sum(jail3$Black2==1, na.rm = TRUE) #The dichotomous variable has 788 people marked as identifying as "Black"
+
+(1103/1993)*100 #55.34% identified as White
+(787/1993)*100 #39.49% identified as Black
+(110/1993)*100 #5.52% identified as American Indian/Alaska Native
+(11/1993)*100 #0.55% identified as Asian
+(12/1993)*100 #0.60% identified as Native Hawaiin/Pacific Islander
+(77/1993)*100 #3.86% identified as "other"
+(0/1993)*100 #0% of people marked "unknown" for race
+
+#Dichotmous variable for "Black" vs. "Nonblack" 
+(788/1993)*100 #39.54 identified as "Black"
+100-((788/1993)*100) #60.46 identified as "Nonblack"
+
+#Education variable------------------------------------------------------------------------------------------------
+sum(jail3$Education==1, na.rm = TRUE) #988 people completed 11th grade or lower
+sum(jail3$Education==2, na.rm = TRUE) #594 people compelted 12th grade
+sum(jail3$Education==3, na.rm = TRUE) #327 people completed their junior year of college
+sum(jail3$Education==4, na.rm = TRUE) #62 people completed their senior year of college or more
+
+(988/1971)*100 #50.13% completed 11th grade or lower
+(594/1971)*100 #30.14% people compelted 12th grade
+(327/1971)*100 #16.59% people completed their junior year of college
+(62/1971)*100 #3.15% people completed their senior year of college or more
+
+#Income variable---------------------------------------------------------------------------------------------------
+sum(jail3$Income==0, na.rm = TRUE) #127 people had no income the month prior to arrest
+sum(jail3$Income==1, na.rm = TRUE) #453 people earned $1-$499 the month prior to arrest
+sum(jail3$Income==2, na.rm = TRUE) #395 people earned $500-$999 the month prior to arrest
+sum(jail3$Income==3, na.rm = TRUE) #322 people earned $1000-$1999 the month prior to arrest
+sum(jail3$Income==4, na.rm = TRUE) #144 people earned $2000-$4999 the month prior to arrest
+sum(jail3$Income==5, na.rm = TRUE) #45 people earned $5000 or more the month prior to arrest
+
+(127/1486)*100 #8.55% people had no income the month prior to arrest
+(453/1486)*100 #30.48% people earned $1-$499 the month prior to arrest
+(395/1486)*100 #26.58% people earned $500-$999 the month prior to arrest
+(322/1486)*100 #21.67% people earned $1000-$1999 the month prior to arrest
+(144/1486)*100 #9.69% people earned $2000-$4999 the month prior to arrest
+(45/1486)*100 #3.03% people earned $5000 or more the month prior to arrest
+
+#Effect Mofifier -- Disability ------------------------------------------------------------------------------------
+sum(jail3$Disability==1, na.rm = TRUE) #453 people report having a disability 
+(453/1993)*100 #22.73% of people report having a disability 
+
+#Independent Variables---------------------------------------------------------------------------------------------
+sum(jail3$ParentsAbusedAlcDrug==1, na.rm = TRUE) #791 people reported that their parents abused alcohol or drugs
+sum(jail3$ParentsServedTime==1, na.rm = TRUE) #466 people reported that their parents served time in jail or prison
+sum(jail3$EverShot==1, na.rm = TRUE) #395 people report having been shot at with a gun
+sum(jail3$PhysicalAbuse==1, na.rm = TRUE) #876 people reported being physically abused prior to their admission
+sum(jail3$SexualAssault==1, na.rm = TRUE) #699 people reported being sexually abused prior to their admission
+
+(791/1993)*100 #39.68% people reported that their parents abused alcohol or drugs
+(466/1993)*100 #23.38% people reported that their parents served time in jail or prison
+(395/1993)*100 #19.82% people report having been shot at with a gun
+(876/1993)*100 #43.95% people reported being physically abused prior to their admission
+(699/1993)*100 #35.07% people reported being sexually abused prior to their admission
+
+#Dependent variables-----------------------------------------------------------------------------------------------
+#Break down of mental illness type
+sum(jail3$V2022Depression==1, na.rm = TRUE) #698 people said they have depression
+sum(jail3$V2023Bipolar==1, na.rm = TRUE) #400 people said they have bipolar
+sum(jail3$V2026OtherAnxiety==1, na.rm = TRUE) #360 people said they have "other anxiety"
+sum(jail3$V2024PsychoticDisorder==1, na.rm = TRUE) #113 people said they have a psychotic disorder 
+sum(jail3$V2027PersonalityDis==1, na.rm = TRUE) #171 people said they have a personality disorder
+sum(jail3$V2025PTSD==1, na.rm = TRUE) #222 people said they have post-traumatic stress disorder (PTSD)
+sum(jail3$V2028Other==1, na.rm = TRUE) #57 people said they have an "other" mental disorder
+
+(698/1993)*100 #35.02% people said they have depression
+(400/1993)*100 #20.07% people said they have bipolar
+(360/1993)*100 #18.06% people said they have "other anxiety"
+(113/1993)*100 #5.67% people said they have a psychotic disorder
+(171/1993)*100 #8.58% people said they have a personality disorder
+(222/1993)*100 #11.14% people said they have post-traumatic stress disorder (PTSD)
+(57/1993)*100 #2.86% people said they have an "other" mental disorder
+
+#Dichotomous mental illness variable 
+sum(jail3$mental_illness==1, na.rm = TRUE) #895 people reported having a mental illness 
+(895/1993)*100 #44.91% of the sample reported having a mental illness 
+```
+Creating a dataset with complete cases for further analysis
+
+*Complete Cases*
+
+```{r}
+#defining variables to include in the complete data set
+jail_cc <- jail3 %>%
+  select(mental_illness, ParentsAbusedAlcDrug, ParentsServedTime, EverShot, PhysicalAbuse, SexualAssault, Education, Income, Black2, Disability) %>%
+
+#dropping all the NAs in the dataset
+   drop_na()
+
+#summarizing the data
+summary(jail_cc) #1434 observations and 10 variables 
+```
+
+###Data Analysis
+
+Check the assumptions; use logistic regression model 
+
+*Assumptions*
+o	Dependent variable is dichotomous (Do you have a mental illness? yes/no)
+o	There are multiple independent variables, and they all vary  
+o	There is independence of observations (individual survey respondents)
+o	All categories for dichotomous dependent and nominal independent variables are exhaustive and mutually exclusive.
+o	There are more than 50 cases per independent variable.
+o	There is no multicollinearity.
+o	There are no overly influential values.
+
+**No need to check for linear relationship via box tidwell, as I have no continuous independent variables
+
+**Use log liklihood to see how much unexplained information there is after the model has been fitted (large values indicate a poor fit)
+    So, the further a predicted value is from the actual value, the more an observation contributes to the LL
+    If many values are far from their predictions, the LL will be large, large LL = bad model fit
+
+*Run the general linear model, without confounders included (unadjusted model)*
+```{r}
+#General Logistic Regression------------------------------------------------------------------------------------------------
+p <- glm(mental_illness ~ ParentsAbusedAlcDrug + ParentsServedTime + EverShot + PhysicalAbuse + SexualAssault,
+               data=jail_cc, family="binomial")
+
+#Check Hosmer Lemeshow to see if model fits as it should
+hoslem.test(jail_cc$mental_illness, fitted(p)) #Non-significant p-value, showing acceptable fit
+
+summary(p) #ParentsAbusedAlcDrug, PhysicalAbuse, and SexualAssault are all sig. predictors 
+coef(p) #To get the coefficients 
+exp(coef(p)) #for ORs only
+  #ParentsAbusedAlcDrug OR = 1.56; PhysicalAbuse OR = 2.27; SexualAssault oR = 2.08
+
+exp(cbind(OR = coef(p), confint(p))) #For confidence intervals 
+```
+
+*Check for multicollinearity*
+```{r}
+vif(p) #values for all predictors are less than 1.2; therfore, multicollinearity is not an issue 
+```
+
+*Check for influential observations*
+```{r}
+#Cook's D plot
+plot(p, which=4, id.n=5, col="red", cex.id=0.60) 
+
+#identify observations with a Cook's D greater than 0.003 
+y<-as.data.frame(cooks.distance(p))
+colnames(y)[1]<-"CD"
+y$obs_no<-rownames(y)
+z<-y[which(y$CD>0.003),]
+z$obs_no
+
+#observations #420, 1691, 1912, and 1975 are influentional
+```
+
+*Remove influential observations*
+```{r}
+#Remove the influential observations 
+p2 <- update(p,subset=c(-420, -1691, -1912, -1975))
+
+#compare coefficients between models with and without influential observations
+compareCoefs(p, p2) #removing the observations made very little difference on the coefficients 
+```
+
+*Adjusted Model: Run the regression, with confounders included*
+```{r}
+#Logistic Regression, including the confounders (Education, Income, and Race)----------------------------------------------
+j <- glm(mental_illness ~ ParentsAbusedAlcDrug + ParentsServedTime + EverShot + PhysicalAbuse + SexualAssault + Education + Income +Black2, data=jail_cc, family="binomial")
+
+#Check Hosmer Lemeshow to see if model fits as it should
+hoslem.test(jail_cc$mental_illness, fitted(j)) #Non-significant p-value, showing acceptable fit
+
+#Remove the observations that were removed in p2
+j2 <- update(j,subset=c(-420, -1691, -1912, -1975))
+
+summary(j2) #significant predictors still include "ParentsAbusedAlcDrug", "PhysicalAbuse", "SexualAssault", and "Black2"
+coef(j2)
+exp(coef(j2))
+exp(cbind(OR=coef(j2), confint(j2)))
+
+#Significant predictors below:
+  #ParentsAbusedAlcDrug OR = 1.51
+  #PhysicalAbuse OR = 2.12
+  #SexualAssault OR = 2.05
+  #Black2 OR = 0.64 (confused as to why this OR is below 1, as that does not make sense with the literature)
+```
+
+*Check the Log Likelihood between adjusted and unadjusted model*
+```{r}
+#Log Likelihood for full model
+logLik(p2) #LL = -903.32
+logLik(j2) #LL = -893.87
+
+#compare models with just bmi to that with bmi and income using LR test
+lmtest::lrtest(p2, j2) #j2 accounts for more of the variation and is statistically significantly better than p2
+anova(p2, j2,test="Chisq") #adjusted model is statistically significantly better
+```
+
+*Check sensitivity and specificity for adjusted model*
+
+```{r}
+odds.n.ends(j2)
+
+#The logistic regression model, including confounders is statistically significant. The model is more specific than it is sensitive. It correctly predicts a negative results (no mental illness) about 74% of the time and correctly predicts a positive results (mental illness) about 57% of the time. 
+```
+
+Perhaps try to create a balanced sample, so that I can improve sensitivity and specificity? Calculate the ROC to get the AUC to determine of well this model does at predicting? 
+
+##Initial results
+
+*Testing some things out*
+
+Create a new single, independent variable that sums all of the current IVs, by how many adverse experiences a person has been exposed to. 
+
+```{r}
+#Sum columns with complete cases
+sum(jail_cc$ParentsAbusedAlcDrug) #592
+sum(jail_cc$ParentsServedTime) #353
+sum(jail_cc$EverShot) #290
+sum(jail_cc$PhysicalAbuse) #661
+sum(jail_cc$SexualAssault) #518
+
+#Create a new variable that is a sum of columns 2:6 to see how many adverse experiences a person has
+jail_cc2 <- jail_cc %>%
+  mutate(AdverseExp=(rowSums(jail_cc[ ,c(2,3,4,5,6)])))
+
+#Check class
+class(jail_cc2$AdverseExp) #is numeric
+
+#Look at summary
+summary(jail_cc2$AdverseExp) #mean = 1.68; min=0 and max=5 (makes sense)
+hist(jail_cc2$AdverseExp) #right-skewed 
+
+#Look at table
+table(jail_cc2$AdverseExp) #0=348; 1=370; 2=311; 3=230; 4=143; 5=32
+
+#Breakdown of numbers
+(348/1434)*100 #24% had no ACE
+(370/1434)*100 #26% had 1
+(311/1434)*100 #22% had 2
+(230/1434)*100 #16% had 3
+(143/1434)*100 #10% had 4
+(32/1434)*100 #2% had 5
+
+#Check for linearity
+#linearity
+logAE <- jail_cc2$AdverseExp*log(jail_cc2$AdverseExp)#create term to test linearity
+
+#Box Tidwell to test assumption of linearity 
+boxTidwellMH <- glm(mental_illness ~ AdverseExp + logAE, data=jail_cc2, family="binomial") 
+summary(boxTidwellMH) #The term for linearity is NOT significant; therefore we do not violate the assumption
+```
+
+*Next Logistic Regression Model*
+
+This time, we are running the logistic regression model, but with the new "AdverseExp" varible
+
+*Partially adjusted -> AE as only Exposure Model*
+```{r}
+new <- glm(mental_illness ~ AdverseExp + Income + Education + Black2, data = jail_cc2, family = "binomial")
+
+#Check Hosmer Lemeshow to see if model fits as it should
+hoslem.test(jail_cc$mental_illness, fitted(new)) #This is non-significant, indicating good model fit
+
+summary(new) #AdverseExp is a significant predictor 
+odds.n.ends(new) #OR = 1.56 and is significant
+#Sensitivity = 55%
+#Specificity = 71%
+```
+ 
+*Partially adjusted -> Disability as only Exposure Model*
+```{r}
+new2 <- glm(mental_illness ~ Disability + Income + Education + Black2, data = jail_cc2, family = "binomial")
+
+#Check Hosmer Lemeshow to see if model fits as it should
+hoslem.test(jail_cc$mental_illness, fitted(new2)) #Non-significant p-value, showing acceptable fit
+
+summary(new2) #AdverseExp is still a significant predictor 
+odds.n.ends(new2) #OR = 5.92 and is significant
+#Sensitivity = 38%
+#Specificity = 90%
+```
+ 
+*Fully Adjusted Model with both predictors*
+```{r}
+new3 <- glm(mental_illness ~ AdverseExp + Disability + Income + Education + Black2, data = jail_cc2, family = "binomial")
+
+#Check Hosmer Lemeshow to see if model fits as it should
+hoslem.test(jail_cc$mental_illness, fitted(new3)) #Non-significant p-value, showing acceptable fit
+
+summary(new3) #AdverseExp is still a significant predictor; Disability is also significant and has a very large OR 
+odds.n.ends(new3) #Disability OR = 5.37; AE OR = 1.50
+#Sensitivity = 57%
+#Specificity = 79%
+```
+ 
+*Adjusted Model with Disability and AdverseExp*
+
+```{r}
+new4 <- glm(mental_illness ~ AdverseExp + Disability + 
+              Income + Education + Black2, data = jail_cc2, family = "binomial")
+
+#Check Hosmer Lemeshow to see if model fits as it should
+hoslem.test(jail_cc$mental_illness, fitted(new4)) #Non-significant p-value, showing acceptable fit
+
+summary(new4) #AdverseExp is still a significant predictor (OR=1.5); Disability is also significant (OR=5.37)
+odds.n.ends(new4) 
+#Sensitivity = 57%
+#Specificity = 79%
+```
+
+*Adjusted Model with Disability and AdverseExp + interaction term*
+```{r}
+new5 <- glm(mental_illness ~ AdverseExp + Disability + AdverseExp*Disability, data = jail_cc2, family = "binomial")
+
+#Check Hosmer Lemeshow to see if model fits as it should
+hoslem.test(jail_cc$mental_illness, fitted(new5)) #Non-significant p-value, showing acceptable fit
+
+summary(new5) #AdverseExp is still a significant predictor (OR=1.58); Disability is also significant (OR=8.48)
+odds.n.ends(new5) 
+#Sensitivity = 61%
+#Specificity = 76%
+
+#Interaction term is significant OR = 0.77
+```
+
+*Test: Just trying things out to try to visualize the interaction*
+```{r}
+glm1 <- glm(mental_illness ~ AdverseExp*Disability, data = jail_cc2,
+            family = "binomial")
+tidy(glm1) %>% kable()
+
+#Create new variable that has the logits for each observation
+jail_cc2 %>% 
+  mutate(pred_logit = predict(glm1)) -> d
+d
+
+#Visually look at logits 
+ggplot(d) +
+  aes(x = pred_logit, fill = as.factor(Disability)) +
+  geom_density(alpha = .5)
+
+#Plot the interaction on logit scale
+d %>% 
+  ggplot() +
+  aes(x = AdverseExp, y = pred_logit, color = as.factor(Disability)) +
+  geom_point() +
+  geom_line()
+
+#Linear model
+lm1 <- lm(mental_illness ~ AdverseExp*Disability, data = jail_cc2)
+tidy(lm1)
+
+#Plot the above
+d %>% 
+  ggplot() +
+  aes(x = AdverseExp, y = as.factor(mental_illness), color = as.factor(Disability)) +
+  geom_point() +
+  geom_abline(mapping = aes(slope = 0.10719981, intercept = 0.20252951), color = "#F8766D") +
+  geom_abline(mapping = aes(slope = 0.46441729, intercept = 0.20252951), color = "#00BFC4")
+
+#Plot 2
+ d %>% 
+  ggplot() +
+  aes(x = AdverseExp, y = mental_illness, color = as.factor(Disability)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE)
+ 
+ #Get survival probabilities 
+ d %>% 
+  mutate(pred_prob = predict(glm1, type = "response")) -> d
+ 
+#Look at plot
+ ggplot(d) +
+  geom_density(aes(x = pred_prob, fill  = as.factor(Disability)), alpha = .5)
+
+#Plot interaction effect
+  d %>% 
+  ggplot() +
+  aes(x = as.integer(AdverseExp), y = as.factor(mental_illness), color = as.factor(Disability)) +
+  geom_point() +
+  geom_smooth(method = "glm",
+              aes(x = AdverseExp, y= pred_prob),
+              method.args = list(family = "binomial"),
+              se = FALSE)
+```
+
+
