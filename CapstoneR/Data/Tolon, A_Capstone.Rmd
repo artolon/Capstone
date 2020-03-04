@@ -621,7 +621,7 @@ odds.n.ends(new4)
 
 *Adjusted Model with Disability and AdverseExp + interaction term*
 ```{r}
-new5 <- glm(mental_illness ~ AdverseExp + Disability + AdverseExp*Disability, data = jail_cc2, family = "binomial")
+new5 <- glm(mental_illness ~ AdverseExp + Disability + AdverseExp*Disability + Income + Education + Black2, data = jail_cc2, family = "binomial")
 
 #Check Hosmer Lemeshow to see if model fits as it should
 hoslem.test(jail_cc$mental_illness, fitted(new5)) #Non-significant p-value, showing acceptable fit
@@ -632,7 +632,16 @@ odds.n.ends(new5)
 #Specificity = 76%
 
 #Interaction term is significant OR = 0.77
+#Among those who have a disability, the probabiltiy of having a mental illness decreases by approximately 23% with every unit increase in adverse experiences reported 
 ```
+
+```{r}
+#Compare the two models to see whether the model fits better with the ineraction
+lmtest::lrtest(new4, new5)
+
+#According to the results, the model with the ineraction term fits statistically significantly better. Therefore, we should use this model.
+```
+
 
 *Test: Just trying things out to try to visualize the interaction*
 ```{r}
