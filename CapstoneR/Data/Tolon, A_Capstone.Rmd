@@ -14,20 +14,11 @@ First, I installed all of the necessary packages and loaded them to my library. 
 
 ```{r, echo=FALSE, results='hide'}
 # installing/loading the latest installr package:
-
-#install.packages("installr"); library(installr) # install+load 
-#install.packages("pacman"); library(pacman) #For loading many packages
-
-#Install the packages that will be used for this session
-#packages <- c("tidyverse", "labelled", "magrittr", "readxl", "writexl", "sas7bdat", "dplyr", "car", "VGAM", "odds.n.ends", "lmtest", "ResourceSelection")
-
-#install.packages(packages)
-
-#installr
+#install.packages("installr"); library(installr) # install+load installr
 
 #updateR() # updating R.
 
-#remove(list = ls())
+remove(list = ls())
 
 #load packages
 library(tidyverse) #for ggplot2,tibble,tidyr,readr,purrr,dplyr,stringr,forcats
@@ -435,17 +426,6 @@ o	There are no overly influential values.
     So, the further a predicted value is from the actual value, the more an observation contributes to the LL
     If many values are far from their predictions, the LL will be large, large LL = bad model fit
 
-*Re-code Income and Education to factor level*
-```{r}
-class(jail_cc$Education)
-class(jail_cc$Income)
-
-jail_cc$Education <- as.factor(jail_cc$Education)
-jail_cc$Income <- as.factor(jail_cc$Income)
-```
-
-
-
 *Run the general linear model, without confounders included (unadjusted model)*
 ```{r}
 #General Logistic Regression------------------------------------------------------------------------------------------------
@@ -507,13 +487,12 @@ summary(j2) #significant predictors still include "ParentsAbusedAlcDrug", "Physi
 coef(j2)
 exp(coef(j2))
 exp(cbind(OR=coef(j2), confint(j2)))
-odds.n.ends(j2)
 
 #Significant predictors below:
   #ParentsAbusedAlcDrug OR = 1.51
   #PhysicalAbuse OR = 2.12
   #SexualAssault OR = 2.05
-  #Black2 OR = 0.64 
+  #Black2 OR = 0.64 (confused as to why this OR is below 1, as that does not make sense with the literature)
 ```
 
 *Check the Log Likelihood between adjusted and unadjusted model*
@@ -532,7 +511,7 @@ anova(p2, j2,test="Chisq") #adjusted model is statistically significantly better
 ```{r}
 odds.n.ends(j2)
 
-#The logistic regression model, including confounders is statistically significant. The model is more specific than it is sensitive. It correctly predicts a negative results (no mental illness) about 74% of the time and correctly predicts a positive results (mental illness) about 56% of the time. 
+#The logistic regression model, including confounders is statistically significant. The model is more specific than it is sensitive. It correctly predicts a negative results (no mental illness) about 74% of the time and correctly predicts a positive results (mental illness) about 57% of the time. 
 ```
 
 Perhaps try to create a balanced sample, so that I can improve sensitivity and specificity? Calculate the ROC to get the AUC to determine of well this model does at predicting? 
@@ -595,8 +574,8 @@ hoslem.test(jail_cc$mental_illness, fitted(new)) #This is non-significant, indic
 
 summary(new) #AdverseExp is a significant predictor 
 odds.n.ends(new) #OR = 1.56 and is significant
-#Sensitivity = 54%
-#Specificity = 72%
+#Sensitivity = 55%
+#Specificity = 71%
 ```
  
 *Partially adjusted -> Disability as only Exposure Model*
@@ -607,11 +586,9 @@ new2 <- glm(mental_illness ~ Disability + Income + Education + Black2, data = ja
 hoslem.test(jail_cc$mental_illness, fitted(new2)) #Non-significant p-value, showing acceptable fit
 
 summary(new2) #AdverseExp is still a significant predictor 
-odds.n.ends(new2) #OR Disability = 6.01 and is significant
-#Sensitivity = 42%
-#Specificity = 88%
-
-lmtest::lrtest(new,new2)
+odds.n.ends(new2) #OR = 5.92 and is significant
+#Sensitivity = 38%
+#Specificity = 90%
 ```
  
 *Fully Adjusted Model with both predictors*
@@ -622,9 +599,9 @@ new3 <- glm(mental_illness ~ AdverseExp + Disability + Income + Education + Blac
 hoslem.test(jail_cc$mental_illness, fitted(new3)) #Non-significant p-value, showing acceptable fit
 
 summary(new3) #AdverseExp is still a significant predictor; Disability is also significant and has a very large OR 
-odds.n.ends(new3) #Disability OR = 5.47; AE OR = 1.50
-#Sensitivity = 59%
-#Specificity = 78%
+odds.n.ends(new3) #Disability OR = 5.37; AE OR = 1.50
+#Sensitivity = 57%
+#Specificity = 79%
 ```
  
 *Adjusted Model with Disability and AdverseExp*
@@ -636,10 +613,10 @@ new4 <- glm(mental_illness ~ AdverseExp + Disability +
 #Check Hosmer Lemeshow to see if model fits as it should
 hoslem.test(jail_cc$mental_illness, fitted(new4)) #Non-significant p-value, showing acceptable fit
 
-summary(new4) #AdverseExp is still a significant predictor (OR=1.5); Disability is also significant (OR=5.47)
+summary(new4) #AdverseExp is still a significant predictor (OR=1.5); Disability is also significant (OR=5.37)
 odds.n.ends(new4) 
-#Sensitivity = 59%
-#Specificity = 78%
+#Sensitivity = 57%
+#Specificity = 79%
 ```
 
 *Adjusted Model with Disability and AdverseExp + interaction term*
@@ -649,13 +626,13 @@ new5 <- glm(mental_illness ~ AdverseExp + Disability + AdverseExp*Disability + I
 #Check Hosmer Lemeshow to see if model fits as it should
 hoslem.test(jail_cc$mental_illness, fitted(new5)) #Non-significant p-value, showing acceptable fit
 
-summary(new5) #AdverseExp is still a significant predictor (OR=1.58); Disability is also significant (OR=8.57==)
+summary(new5) #AdverseExp is still a significant predictor (OR=1.58); Disability is also significant (OR=8.48)
 odds.n.ends(new5) 
 #Sensitivity = 61%
-#Specificity = 77%
+#Specificity = 76%
 
-#Interaction term is significant OR = 0.78
-#Among those who have a disability, the probabiltiy of having a mental illness decreases by approximately 22% with every unit increase in adverse experiences reported 
+#Interaction term is significant OR = 0.77
+#Among those who have a disability, the probabiltiy of having a mental illness decreases by approximately 23% with every unit increase in adverse experiences reported 
 ```
 
 ```{r}
@@ -668,8 +645,7 @@ lmtest::lrtest(new4, new5)
 
 *Test: Just trying things out to try to visualize the interaction*
 ```{r}
-#glm1 <- glm(mental_illness ~ AdverseExp*Disability, data = jail_cc2,
-            family = "binomial")
+#glm1 <- glm(mental_illness ~ AdverseExp*Disability, data = jail_cc2, family = "binomial")
 #tidy(glm1) %>% kable()
 
 #Create new variable that has the logits for each observation
@@ -727,4 +703,28 @@ lmtest::lrtest(new4, new5)
               #se = FALSE)
 ```
 
+##Citations
 
+```{r}
+#For R Studio
+RStudio.Version()
+
+#For R
+citation()
+
+#For Tidyverse
+citation("tidyverse")
+
+#For other packages
+citation(package = "labelled")
+citation(package = "magrittr")
+citation(package = "readxl")
+citation(package = "writexl")
+citation(package = "sas7bdat")
+citation(package = "dplyr")
+citation(package = "car")
+citation(package = "VGAM")
+citation(package = "odds.n.ends")
+citation(package = "lmtest")
+citation(package = "ResourceSelection")
+```
